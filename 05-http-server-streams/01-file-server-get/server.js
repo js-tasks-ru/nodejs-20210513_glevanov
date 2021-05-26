@@ -26,8 +26,9 @@ server.on('request', (req, res) => {
             res.end();
             return;
           }
-          const file = fs.createReadStream(filepath);
-          file.pipe(res);
+          const readFileStream = fs.createReadStream(filepath);
+          readFileStream.on('close', () => res.end());
+          readFileStream.pipe(res);
         });
         break;
 
