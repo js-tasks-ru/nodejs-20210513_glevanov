@@ -1,7 +1,8 @@
 const url = require('url');
 const http = require('http');
 const path = require('path');
-const fsPromises = require('fs/promises');
+const fs = require('fs');
+const LimitSizeStream = require('./LimitSizeStream');
 
 const server = new http.Server();
 
@@ -19,17 +20,23 @@ server.on('request', (req, res) => {
           res.end();
           break;
         }
-        if (!req.body) {
-          res.statusCode = 409;
-          res.end();
-          break;
-        }
 
-        fsPromises.open(filepath, 'wx')
-            .then((file) => {
-              //
+        const limitStream = new LimitSizeStream({limit: 1000000});
+        const writeStream = fs.createWriteStream(filepath, {flags: 'wx'});
+
+        writeStream.on('finish', () => {
+          res.statusCode = 201;
+          res.end();
+        });
+
+        req
+            .pipe(limitStream)
+            .on('error', () => {
+              res.statusCode = 413;
+              fs.unlink(filepath, () => res.end());
             })
-            .catch((e) => {
+            .pipe(writeStream)
+            .on('error', (e) => {
               if (e.code === 'EEXIST') {
                 res.statusCode = 409;
                 res.end();
@@ -37,6 +44,11 @@ server.on('request', (req, res) => {
                 throw e;
               }
             });
+
+        req.on('aborted', () => {
+          writeStream.destroy();
+          fs.unlink(filepath, () => res.end());
+        });
         break;
 
       default:

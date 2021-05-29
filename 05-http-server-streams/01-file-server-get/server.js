@@ -28,6 +28,10 @@ server.on('request', (req, res) => {
           }
           const readFileStream = fs.createReadStream(filepath);
           readFileStream.on('close', () => res.end());
+          readFileStream.on('aborted', () => {
+            readFileStream.destroy();
+            res.end();
+          });
           readFileStream.pipe(res);
         });
         break;
