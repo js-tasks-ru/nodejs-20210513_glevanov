@@ -16,13 +16,13 @@ server.on('request', (req, res) => {
         const pathnameLength = pathname.split(path.sep).length;
         if (pathnameLength > 1) {
           res.statusCode = 400;
-          res.end();
+          res.end('Nested paths not allowed');
           break;
         }
         fs.access(filepath, fs.F_OK, (err) => {
           if (err) {
             res.statusCode = 404;
-            res.end();
+            res.end('File not found');
             return;
           }
           fs.unlink(filepath, () => res.end());
@@ -36,7 +36,7 @@ server.on('request', (req, res) => {
   } catch (e) {
     console.error(e);
     res.statusCode = 500;
-    res.end();
+    res.end('Internal server error');
   }
 });
 

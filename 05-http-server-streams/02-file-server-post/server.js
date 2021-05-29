@@ -17,7 +17,7 @@ server.on('request', (req, res) => {
         const pathnameLength = pathname.split(path.sep).length;
         if (pathnameLength > 1) {
           res.statusCode = 400;
-          res.end();
+          res.end('Nested paths not allowed');
           break;
         }
 
@@ -31,23 +31,25 @@ server.on('request', (req, res) => {
 
         req
             .pipe(limitStream)
-            .on('error', () => {
+            .on('error', (e) => {
+              fs.unlink(filepath, () => {});
               res.statusCode = 413;
-              fs.unlink(filepath, () => res.end());
+              res.end('File size limit reached (max 1MB)');
             })
             .pipe(writeStream)
             .on('error', (e) => {
               if (e.code === 'EEXIST') {
                 res.statusCode = 409;
-                res.end();
+                res.end('File already exists');
               } else {
                 throw e;
               }
             });
 
         req.on('aborted', () => {
+          fs.unlink(filepath, () => {});
           writeStream.destroy();
-          fs.unlink(filepath, () => res.end());
+          res.end('Aborted by client');
         });
         break;
 
@@ -58,7 +60,7 @@ server.on('request', (req, res) => {
   } catch (e) {
     console.error(e);
     res.statusCode = 500;
-    res.end();
+    res.end('Internal server error');
   }
 });
 
