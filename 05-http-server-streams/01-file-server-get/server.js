@@ -1,22 +1,49 @@
 const url = require('url');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 
 const server = new http.Server();
 
 server.on('request', (req, res) => {
-  const pathname = url.parse(req.url).pathname.slice(1);
+  try {
+    const pathname = url.parse(req.url).pathname.slice(1);
 
-  const filepath = path.join(__dirname, 'files', pathname);
+    const filepath = path.join(__dirname, 'files', pathname);
 
-  switch (req.method) {
-    case 'GET':
+    switch (req.method) {
+      case 'GET':
+        const pathnameLength = pathname.split(path.sep).length;
+        if (pathnameLength > 1) {
+          res.statusCode = 400;
+          res.end('Nested paths not allowed');
+          break;
+        }
 
-      break;
+        fs.access(filepath, fs.F_OK, (err) => {
+          if (err) {
+            res.statusCode = 404;
+            res.end('File not found');
+            return;
+          }
+          const readFileStream = fs.createReadStream(filepath);
+          readFileStream.on('close', () => res.end());
+          readFileStream.on('aborted', () => {
+            readFileStream.destroy();
+            res.end('Aborted by client');
+          });
+          readFileStream.pipe(res);
+        });
+        break;
 
-    default:
-      res.statusCode = 501;
-      res.end('Not implemented');
+      default:
+        res.statusCode = 501;
+        res.end('Not implemented');
+    }
+  } catch (e) {
+    console.error(e);
+    res.statusCode = 500;
+    res.end('Internal server error');
   }
 });
 
